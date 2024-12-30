@@ -1,9 +1,8 @@
 python inference.py \
---image_dir test/images_sparse/family \
---out_dir ./output \
+--image_dir inputs/a2 \
+--out_dir outputs/a2 \
 --mode 'sparse_view_interp' \
 --bg_trd 0.2 \
---seed 123 \
 --ckpt_path ./checkpoints/model_sparse.ckpt \
 --config configs/inference_pvd_1024.yaml \
 --ddim_steps 50 \
