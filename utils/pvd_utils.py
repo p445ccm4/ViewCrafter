@@ -342,6 +342,61 @@ def generate_traj_txt(c2ws_anchor,H,W,fs,c,phi, theta, r,frame,device,viz_traj=F
     cameras = PerspectiveCameras(focal_length=fs, principal_point=c, in_ndc=False, image_size=image_size, R=R_new, T=T_new, device=device)
     return cameras,num_views
 
+def generate_traj_horiz(c2ws_anchor,H,W,fs,c,phi, theta, r,frame,device,viz_traj=False, save_dir = None):
+    # Initialize a camera.
+    """
+    The camera coordinate sysmte in COLMAP is right-down-forward
+    Pytorch3D is left-up-forward
+    """
+
+    if len(phi)>3:
+        phis = txt_interpolation(phi,frame,mode='smooth')
+        phis[0] = phi[0]
+        phis[-1] = phi[-1]
+    else:
+        phis = txt_interpolation(phi,frame,mode='linear')
+
+    if len(theta)>3:
+        thetas = txt_interpolation(theta,frame,mode='smooth')
+        thetas[0] = theta[0]
+        thetas[-1] = theta[-1]
+    else:
+        thetas = txt_interpolation(theta,frame,mode='linear')
+    
+    if len(r) >3:
+        rs = txt_interpolation(r,frame,mode='smooth')
+        rs[0] = r[0]
+        rs[-1] = r[-1]        
+    else:
+        rs = txt_interpolation(r,frame,mode='linear')
+    rs = rs*c2ws_anchor[0,2,3].cpu().numpy()
+
+    c2ws_list = []
+    for th, ph, r in zip(thetas,phis,rs):
+        c2w_new = sphere2pose(c2ws_anchor, np.float32(th), np.float32(ph), np.float32(r), device)
+        c2ws_list.append(c2w_new)
+    c2ws = torch.cat(c2ws_list,dim=0)
+
+    if viz_traj:
+        poses = c2ws.cpu().numpy()
+        # visualizer(poses, os.path.join(save_dir,'viz_traj.png'))
+        frames = [visualizer_frame(poses, i) for i in range(len(poses))]
+        save_video(np.array(frames)/255.,os.path.join(save_dir,'viz_traj.mp4'))
+
+    num_views = c2ws.shape[0]
+
+    R, T = c2ws[:,:3, :3], c2ws[:,:3, 3:]
+    ## 将dust3r坐标系转成pytorch3d坐标系
+    R = torch.stack([-R[:,:, 0], -R[:,:, 1], R[:,:, 2]], 2) # from RDF to LUF for Rotation
+    new_c2w = torch.cat([R, T], 2)
+    w2c = torch.linalg.inv(torch.cat((new_c2w, torch.Tensor([[[0,0,0,1]]]).to(device).repeat(new_c2w.shape[0],1,1)),1))
+    R_new, T_new = w2c[:,:3, :3].permute(0,2,1), w2c[:,:3, 3] # convert R to row-major matrix
+    image_size = ((H, W),)  # (h, w)
+    # fs = interpolate_sequence(fs,frame-2,device=device)
+    # c = interpolate_sequence(c,frame-2,device=device)
+    cameras = PerspectiveCameras(focal_length=fs, principal_point=c, in_ndc=False, image_size=image_size, R=R_new, T=T_new, device=device)
+    return cameras,num_views
+
 def setup_renderer(cameras, image_size):
     # Define the settings for rasterization and shading.
     raster_settings = PointsRasterizationSettings(
@@ -613,7 +668,7 @@ def visualizer_frame(camera_poses, highlight_index):
             camera_positions[0],
             camera_positions[1],
             camera_positions[2],
-            c=color,
+            color=color,
             marker="o",
             s=size,
         )

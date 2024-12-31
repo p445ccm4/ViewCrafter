@@ -273,6 +273,57 @@ class ViewCrafter:
             print(f'Generating clip {i} ...\n')
             diffusion_results.append(self.run_diffusion(render_results[i*(self.opts.video_length - 1):self.opts.video_length+i*(self.opts.video_length - 1)]))
         print(f'Finish!\n')
+        diffusion_results = (torch.cat(diffusion_results) + 1.0) / 2.0
+        save_video(diffusion_results, os.path.join(self.opts.save_dir, f'diffusion.mp4'))
+        # torch.Size([25, 576, 1024, 3])
+        return diffusion_results
+
+    def nvs_sparse_view_horiz(self):
+
+        c2ws = self.scene.get_im_poses().detach()[-1:]
+        principal_points = self.scene.get_principal_points().detach()[-1:]
+        focals = self.scene.get_focals().detach()[-1:]
+        shape = self.images[0]['true_shape']
+        H, W = int(shape[0][0]), int(shape[0][1])
+        pcd = [i.detach() for i in self.scene.get_pts3d(clip_thred=self.opts.dpt_trd)] # a list of points of size whc
+        depth = [i.detach() for i in self.scene.get_depthmaps()]
+
+        if len(self.images) == 2:
+            masks = None
+            mask_pc = False
+        else:
+            ## masks for cleaner point cloud
+            self.scene.min_conf_thr = float(self.scene.conf_trf(torch.tensor(self.opts.min_conf_thr)))
+            masks = self.scene.get_masks()
+            depth = self.scene.get_depthmaps()
+            bgs_mask = [dpt > self.opts.bg_trd*(torch.max(dpt[40:-40,:])+torch.min(dpt[40:-40,:])) for dpt in depth]
+            masks_new = [m+mb for m, mb in zip(masks,bgs_mask)] 
+            masks = to_numpy(masks_new)
+            mask_pc = True
+
+        imgs = np.array(self.scene.imgs)
+
+        # camera_traj,num_views = generate_traj_interp(c2ws, H, W, focals, principal_points, self.opts.video_length, self.device)
+
+        phi = [0.0, 240.0]
+        theta = [0.0, 0.0]
+        r = [1.0, 1.0]
+        camera_traj,num_views = generate_traj_horiz(c2ws, H, W, focals, principal_points, phi, theta, r,self.opts.video_length, self.device,viz_traj=False, save_dir = self.opts.save_dir)
+
+        render_results, viewmask = self.run_render(pcd, imgs,masks, H, W, camera_traj,num_views)
+        render_results = F.interpolate(render_results.permute(0,3,1,2), size=(576, 1024), mode='bilinear', align_corners=False).permute(0,2,3,1)
+        
+        # for i in range(len(self.img_ori)):
+        #     render_results[i*(self.opts.video_length - 1)] = self.img_ori[i]
+        save_video(render_results, os.path.join(self.opts.save_dir, f'render.mp4'))
+        save_pointcloud_with_normals(imgs, pcd, msk=masks, save_path=os.path.join(self.opts.save_dir, f'pcd.ply') , mask_pc=mask_pc, reduce_pc=False)
+
+        diffusion_results = []
+        print(f'Generating {len(self.img_ori)-1} clips\n')
+        for i in range(len(self.img_ori)-1 ):
+            print(f'Generating clip {i} ...\n')
+            diffusion_results.append(self.run_diffusion(render_results[i*(self.opts.video_length - 1):self.opts.video_length+i*(self.opts.video_length - 1)]))
+        print(f'Finish!\n')
         diffusion_results = torch.cat(diffusion_results)
         save_video((diffusion_results + 1.0) / 2.0, os.path.join(self.opts.save_dir, f'diffusion.mp4'))
         # torch.Size([25, 576, 1024, 3])

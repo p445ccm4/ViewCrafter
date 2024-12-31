@@ -1,7 +1,7 @@
 python inference.py \
---image_dir inputs/c2 \
---out_dir outputs/c2 \
---mode 'sparse_view_interp' \
+--image_dir inputs/b0 \
+--out_dir outputs/b0 \
+--mode 'sparse_view_horiz' \
 --bg_trd 0.2 \
 --ckpt_path ./checkpoints/model_sparse.ckpt \
 --config configs/inference_pvd_1024.yaml \
