@@ -6,7 +6,7 @@ from diffusers.utils import export_to_video
 import torch
 import torchvision
 
-input_video_path = "outputs/c2/20241231_1434_c2/diffusion.mp4"
+input_video_path = "outputs/video/a1/20241227_1212_a1/diffusion.mp4"
 
 # load
 device = 'cuda'
@@ -21,11 +21,11 @@ diffusion_result = torch.unsqueeze(diffusion_result, 0)
 
 # inference
 diffusion_result = rife_inference_with_latents(frame_interpolation_model, diffusion_result)
-diffusion_result = upscale.upscale_batch_and_concatenate(upscale_model, diffusion_result.to(device), device)
+# diffusion_result = upscale.upscale_batch_and_concatenate(upscale_model, diffusion_result.to(device), device)
 
 # postprocess
 diffusion_result = VaeImageProcessor.pt_to_numpy(diffusion_result[0])
 
 # export
-save_video_path = os.path.join(os.path.dirname(input_video_path), 'interpolated_upscaled_output2.mp4')
+save_video_path = os.path.join(os.path.dirname(input_video_path), 'interpolated_output.mp4')
 export_to_video(diffusion_result, save_video_path, fps=30)

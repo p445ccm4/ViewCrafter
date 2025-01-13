@@ -1,6 +1,6 @@
 python inference.py \
---image_dir inputs/c2 \
---out_dir outputs/c2 \
+--image_dir inputs/d1 \
+--out_dir outputs/video/d1 \
 --mode 'sparse_view_interp' \
 --bg_trd 0.2 \
 --ckpt_path ./checkpoints/model_sparse.ckpt \

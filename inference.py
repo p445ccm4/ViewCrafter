@@ -58,8 +58,8 @@ if __name__=="__main__":
     upscale_model = upscale.load_sd_upscale("./checkpoints/models/model_real_esran/RealESRGAN_x4.pth", device)
     frame_interpolation_model = load_rife_model("./checkpoints/models/model_rife")
 
-    diffusion_result = rife_inference_with_latents(frame_interpolation_model, diffusion_result)
-    diffusion_result = upscale.upscale_batch_and_concatenate(upscale_model, diffusion_result, device)
+    diffusion_result = rife_inference_with_latents(frame_interpolation_model, diffusion_result) 
+    diffusion_result = upscale.upscale_batch_and_concatenate(upscale_model, diffusion_result.to(device), device)
     
     diffusion_result = VaeImageProcessor.pt_to_numpy(diffusion_result[0])
     save_video_path = os.path.join(opts.out_dir, 'upscaled_interpolated_output.mp4')
